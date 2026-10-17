@@ -610,6 +610,7 @@ if test -n "${bwrap_is_suid:-}"; then
     ok_skip "no --tmp-overlay support"
     ok_skip "no --ro-overlay support"
     ok_skip "no --overlay-src support"
+    ok_skip "no overlay index=off support"
 else
     mkdir lower1 lower2 upper work
     printf 1 > lower1/a
@@ -619,6 +620,7 @@ else
 
     # Check if unprivileged overlayfs is available
     if ! unshare -rm mount -t overlay -o lowerdir=lower1,upperdir=upper,workdir=work,userxattr overlay lower2; then
+        ok_skip "no kernel support for unprivileged overlayfs"
         ok_skip "no kernel support for unprivileged overlayfs"
         ok_skip "no kernel support for unprivileged overlayfs"
         ok_skip "no kernel support for unprivileged overlayfs"
@@ -714,6 +716,13 @@ else
         fi
         assert_file_has_content err.txt "^bwrap: --overlay-src must be followed by another --overlay-src or one of --overlay, --tmp-overlay, or --ro-overlay"
         ok "--overlay-src restrictions"
+
+        # Test that overlays sharing an upperdir mount even if the host's
+        # overlay module defaults to index=on, which would refuse them
+        mkdir work2
+        $RUN --overlay-src lower1 --overlay upper work /tmp/x --overlay-src lower1 --overlay upper work2 /tmp/y cat /tmp/y/b > stdout
+        assert_file_has_content stdout '^5$'
+        ok "overlays default to index=off"
 
     fi
 fi

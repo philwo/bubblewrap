@@ -1351,7 +1351,12 @@ setup_newroot (bool unshare_pid)
                 multi_src = true;
               }
 
-            strappend (&sb, ",userxattr");
+            /* Without CAP_DAC_READ_SEARCH in the initial user namespace,
+             * overlayfs can't decode file handles, so index and xino fall
+             * back to off with a warning. Ask for off up front, so that the
+             * host's module defaults neither log warnings nor make the
+             * kernel refuse an upperdir that another mount still uses. */
+            strappend (&sb, ",userxattr,index=off,xino=off");
 
             if (mount ("overlay", dest_path, "overlay", MS_MGC_VAL | MS_NOSUID | MS_NODEV, sb.str) != 0)
               {

@@ -392,6 +392,11 @@
           undefined.
         </para>
         <para>
+          bubblewrap mounts every overlay with
+          <literal>userxattr,index=off,xino=off</literal>, independent of the
+          defaults of the host's overlay module.
+        </para>
+        <para>
           For more information see the Overlay Filesystem documentation in the
           Linux kernel at
           https://www.kernel.org/doc/Documentation/filesystems/overlayfs.txt
