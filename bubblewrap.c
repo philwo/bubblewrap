@@ -1318,6 +1318,8 @@ setup_newroot (bool unshare_pid)
             bool multi_src = false;
             cleanup_fdset FdSet fds = {0};
             cleanup_free char *dest_path = fd_to_proc_path (dest_fd);
+            /* op moves on to the workdir and source ops below. */
+            const SetupOp *mount_op = op;
 
             if (op->source != NULL)
               {
@@ -1358,9 +1360,9 @@ setup_newroot (bool unshare_pid)
                 if (errno == ELOOP)
                   die ("Can't make overlay mount on %s with options %s: "
                        "Overlay directories may not overlap",
-                       op->dest, sb.str);
+                       mount_op->dest, sb.str);
                 die_with_mount_error ("Can't make overlay mount on %s with options %s",
-                                      op->dest, sb.str);
+                                      mount_op->dest, sb.str);
               }
 
             free (sb.str);

@@ -642,6 +642,10 @@ else
         $RUN --overlay-src lower1 --overlay-src lower2 --overlay upper work /tmp/x/y/z sh -c 'printf 5 > /tmp/x/y/z/b; cat /tmp/x/y/z/b' > stdout
         assert_file_has_content stdout '^5$'
         assert_file_has_content upper/b '^5$'
+        if $RUN --overlay-src lower1 --overlay upper upper /tmp/x/y/z true 2>err.txt; then
+            assert_not_reached Same upperdir and workdir accepted
+        fi
+        assert_file_has_content err.txt "^bwrap: Can't make overlay mount on /tmp/x/y/z with options "
         ok "--overlay"
 
         # Test --overlay path escaping
