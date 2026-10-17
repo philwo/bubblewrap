@@ -95,6 +95,7 @@ static int opt_tmp_overlay_count = 0;
 static int next_perms = -1;
 static size_t next_size_arg = 0;
 static int next_overlay_src_count = 0;
+static const char *next_overlay_opts = NULL;
 static bool opt_not_a_security_boundary = false;
 
 #define CAP_TO_MASK_0(x) (1L << ((x) & 31))
@@ -166,6 +167,7 @@ struct _SetupOp
   SetupOpFlag flags;
   int         perms;
   size_t      size;  /* number of bytes, zero means unset/default */
+  const char *overlay_opts;  /* extra overlayfs mount options, or NULL */
   SetupOp    *next;
 };
 
@@ -334,6 +336,7 @@ usage (int ecode, FILE *out)
            "                                 WORKDIR an empty directory on the same filesystem as RWSRC\n"
            "    --tmp-overlay DEST           Mount overlayfs on DEST, with writes going to an invisible tmpfs\n"
            "    --ro-overlay DEST            Mount overlayfs read-only on DEST\n"
+           "    --overlay-opts OPTS          Add mount options OPTS to the next overlay\n"
            "    --exec-label LABEL           Exec label for the sandbox\n"
            "    --file-label LABEL           File label for temporary sandbox content\n"
            "    --proc DEST                  Mount new procfs on DEST\n"
@@ -1357,6 +1360,8 @@ setup_newroot (bool unshare_pid)
              * host's module defaults neither log warnings nor make the
              * kernel refuse an upperdir that another mount still uses. */
             strappend (&sb, ",userxattr,index=off,xino=off");
+            if (mount_op->overlay_opts != NULL)
+              strappendf (&sb, ",%s", mount_op->overlay_opts);
 
             if (mount ("overlay", dest_path, "overlay", MS_MGC_VAL | MS_NOSUID | MS_NODEV, sb.str) != 0)
               {
@@ -2028,6 +2033,19 @@ parse_args_recurse (int          *argcp,
           argv += 1;
           argc -= 1;
         }
+      else if (strcmp (arg, "--overlay-opts") == 0)
+        {
+          if (argc < 2)
+            die ("--overlay-opts takes an argument");
+
+          if (next_overlay_opts != NULL)
+            die ("--overlay-opts given twice for the same action");
+
+          next_overlay_opts = argv[1];
+
+          argv += 1;
+          argc -= 1;
+        }
       else if (strcmp (arg, "--overlay") == 0)
         {
           SetupOp *workdir_op;
@@ -2039,6 +2057,8 @@ parse_args_recurse (int          *argcp,
             die ("--overlay requires at least one --overlay-src");
 
           op = setup_op_new (SETUP_OVERLAY_MOUNT);
+          op->overlay_opts = next_overlay_opts;
+          next_overlay_opts = NULL;
           op->source = path_argument (arg, argv[1]);
           workdir_op = setup_op_new (SETUP_OVERLAY_SRC);
           workdir_op->source = path_argument (arg, argv[2]);
@@ -2057,6 +2077,8 @@ parse_args_recurse (int          *argcp,
             die ("--tmp-overlay requires at least one --overlay-src");
 
           op = setup_op_new (SETUP_TMP_OVERLAY_MOUNT);
+          op->overlay_opts = next_overlay_opts;
+          next_overlay_opts = NULL;
           op->dest = path_argument (arg, argv[1]);
           make_setup_overlay_src_ops (argv);
           opt_tmp_overlay_count++;
@@ -2073,6 +2095,8 @@ parse_args_recurse (int          *argcp,
             die ("--ro-overlay requires at least two --overlay-src");
 
           op = setup_op_new (SETUP_RO_OVERLAY_MOUNT);
+          op->overlay_opts = next_overlay_opts;
+          next_overlay_opts = NULL;
           op->dest = path_argument (arg, argv[1]);
           make_setup_overlay_src_ops (argv);
 
@@ -2780,6 +2804,11 @@ parse_args_recurse (int          *argcp,
       if (strcmp (arg, "--overlay-src") != 0 && next_overlay_src_count > 0)
         die ("--overlay-src must be followed by another --overlay-src or one of --overlay, --tmp-overlay, or --ro-overlay");
 
+      /* Similarly for --overlay-opts, which may precede --overlay-src. */
+      if (strcmp (arg, "--overlay-opts") != 0 && strcmp (arg, "--overlay-src") != 0
+          && next_overlay_opts != NULL)
+        die ("--overlay-opts must be followed by --overlay-src");
+
       argv++;
       argc--;
     }
@@ -2798,6 +2827,9 @@ parse_args (int          *argcp,
 
   if (next_overlay_src_count > 0)
     die ("--overlay-src must be followed by another --overlay-src or one of --overlay, --tmp-overlay, or --ro-overlay");
+
+  if (next_overlay_opts != NULL)
+    die ("--overlay-opts must be followed by --overlay-src");
 }
 
 static void

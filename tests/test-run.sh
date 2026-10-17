@@ -610,6 +610,7 @@ if test -n "${bwrap_is_suid:-}"; then
     ok_skip "no --tmp-overlay support"
     ok_skip "no --ro-overlay support"
     ok_skip "no --overlay-src support"
+    ok_skip "no --overlay-opts support"
     ok_skip "no overlay index=off support"
 else
     mkdir lower1 lower2 upper work
@@ -620,6 +621,7 @@ else
 
     # Check if unprivileged overlayfs is available
     if ! unshare -rm mount -t overlay -o lowerdir=lower1,upperdir=upper,workdir=work,userxattr overlay lower2; then
+        ok_skip "no kernel support for unprivileged overlayfs"
         ok_skip "no kernel support for unprivileged overlayfs"
         ok_skip "no kernel support for unprivileged overlayfs"
         ok_skip "no kernel support for unprivileged overlayfs"
@@ -716,6 +718,30 @@ else
         fi
         assert_file_has_content err.txt "^bwrap: --overlay-src must be followed by another --overlay-src or one of --overlay, --tmp-overlay, or --ro-overlay"
         ok "--overlay-src restrictions"
+
+        # Test --overlay-opts
+        $RUN --overlay-opts volatile --overlay-src lower1 --tmp-overlay /tmp/x grep " /tmp/x " /proc/self/mountinfo > stdout
+        # Linux 7.0 and later show volatile as fsync=volatile
+        assert_file_has_content stdout ' /tmp/x .*[,=]volatile'
+        $RUN --overlay-src lower1 --tmp-overlay /tmp/x grep " /tmp/x " /proc/self/mountinfo > stdout
+        assert_not_file_has_content stdout 'volatile'
+        if $RUN --overlay-opts no-such-option --overlay-src lower1 --tmp-overlay /tmp/x true 2>err.txt; then
+            assert_not_reached Unknown overlay option accepted
+        fi
+        assert_file_has_content err.txt "^bwrap: Can't make overlay mount on .*,no-such-option"
+        if $RUN --overlay-opts volatile --overlay-opts volatile --overlay-src lower1 --tmp-overlay /tmp/x true 2>err.txt; then
+            assert_not_reached --overlay-opts allowed twice
+        fi
+        assert_file_has_content err.txt "^bwrap: --overlay-opts given twice for the same action"
+        if $RUN --overlay-opts volatile true 2>err.txt; then
+            assert_not_reached Trailing --overlay-opts allowed
+        fi
+        assert_file_has_content err.txt "^bwrap: --overlay-opts must be followed by --overlay-src"
+        if $RUN --overlay-opts volatile --tmpfs /tmp/x true 2>err.txt; then
+            assert_not_reached --overlay-opts allowed to precede non-overlay options
+        fi
+        assert_file_has_content err.txt "^bwrap: --overlay-opts must be followed by --overlay-src"
+        ok "--overlay-opts"
 
         # Test that overlays sharing an upperdir mount even if the host's
         # overlay module defaults to index=on, which would refuse them

@@ -394,7 +394,8 @@
         <para>
           bubblewrap mounts every overlay with
           <literal>userxattr,index=off,xino=off</literal>, independent of the
-          defaults of the host's overlay module.
+          defaults of the host's overlay module. Options given with
+          <option>--overlay-opts</option> take precedence.
         </para>
         <para>
           For more information see the Overlay Filesystem documentation in the
@@ -402,6 +403,20 @@
           https://www.kernel.org/doc/Documentation/filesystems/overlayfs.txt
         </para>
       </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><option>--overlay-opts <arg choice="plain">OPTS</arg></option></term>
+      <listitem><para>This option does nothing on its own, and must be followed
+        by the <option>--overlay-src</option> options of an overlay. It appends
+        the comma-separated overlayfs mount options
+        <arg choice="plain">OPTS</arg> to those that bubblewrap passes to the
+        next <option>--overlay</option>, <option>--tmp-overlay</option> or
+        <option>--ro-overlay</option>. For example,
+        <literal>--overlay-opts volatile --overlay-src /usr --overlay /up /work /usr</literal>
+        skips syncing the upper layer. Note that the kernel then refuses to
+        mount the same <arg choice="plain">WORKDIR</arg> again until
+        <filename>work/incompat/volatile</filename> inside it is removed.
+        Subsequent overlays are not affected.</para></listitem>
     </varlistentry>
     <varlistentry>
       <term><option>--proc <arg choice="plain">DEST</arg></option></term>
